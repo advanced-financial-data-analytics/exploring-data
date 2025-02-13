@@ -1,6 +1,7 @@
 ---
-title: "Exploring Data, Normality, and Smoothing" 
-author: "Barry Quinn <br> Digital Dave"
+title: "Illuminating Financial Time Series:" 
+subtitle: "Data Exploration, Normality Checks, and Forecasting Through Smoothing" 
+author: "Barry Quinn"
 footer: "Advanced Financial Data Analytics"
 css: mycssblend.css
 logo: qbslogo.png
