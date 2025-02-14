@@ -29,6 +29,16 @@ library(DT)
 
 # Exploring Data
 
+## Learning Objectives
+- Understand how to visualize and explore financial time series data
+- Learn key R packages and functions for financial analysis
+- Develop intuition for patterns in financial data
+
+## Why This Matters
+- Good data exploration helps identify potential modeling approaches
+- Visual analysis reveals patterns that statistics might miss
+- Essential skill for any financial analyst
+
 ## Outline
 
 - package `tsfe` and class datasets
@@ -142,11 +152,21 @@ print(data(package='tsfe'))
 ```{r}
 #| echo: true
 #| eval: true
-ftse<-tq_get("^FTSE",from="2016-01-01")
-ftse_m<-tq_transmute(ftse,
-                     select = adjusted,
-                     mutate_fun = to.monthly)
-ftse_m_ts<-ts(ftse_m$adjusted, start=c(2016,1), freq=12)
+
+# Download FTSE 100 index data starting from 2016
+ftse <- tq_get("^FTSE", from="2016-01-01")
+
+# Convert daily data to monthly frequency
+# tq_transmute is used to transform the data while selecting specific columns
+ftse_m <- tq_transmute(ftse,
+                     select = adjusted,    # Select adjusted closing prices
+                     mutate_fun = to.monthly)  # Convert to monthly frequency
+
+# Create a time series object from the monthly data
+# Start date is set to January 2016 with monthly frequency (freq=12)
+ftse_m_ts <- ts(ftse_m$adjusted, 
+                start=c(2016,1),  # Starting year and month
+                freq=12)          # 12 periods per year (monthly data)
 ```
 :::
 ::: column
@@ -245,7 +265,7 @@ This is because:
 - First, we use probability models to mimic variation in the world, and the tools of simulation can help us better
 understand how this variation plays out.
 
->Patterns of randomness are notoriously contrary to normal human thinking—our brains don’t seem to be able to do a good job understanding that random swings will be present in the short term but average out in the long run—and in many cases simulation is a big help in training our intuitions about averages and variation. (Gelman et al. 2021)
+>Patterns of randomness are notoriously contrary to normal human thinking—our brains don't seem to be able to do a good job understanding that random swings will be present in the short term but average out in the long run—and in many cases simulation is a big help in training our intuitions about averages and variation. (Gelman et al. 2021)
 
 
 ## `the importance of simulation`
@@ -284,26 +304,32 @@ Throughout this course and in our practice, we use simulation for all these reas
 - The coding for simulation becomes cleaner if we express the steps for a single simulation in an R function.
 
 ```{r}
-#|label: customfunction
+#| label: customfunction
 #| echo: true
+
+# Function to simulate a single price path
 path_sim <- function(){
-  days <- 200
-  changes <- rnorm(200,mean=1.001,sd=0.005)
-  sample.path <- cumprod(c(40,changes))
-  closing.price <- sample.path[days+1] #+1 because we add the opening price
-  return(closing.price)
+    days <- 200                           # Simulation horizon
+    
+    # Generate daily returns with slight upward drift
+    # mean=1.001 implies 0.1% average daily return
+    # sd=0.005 represents daily volatility of 0.5%
+    changes <- rnorm(200, mean=1.001, sd=0.005)
+    
+    # Calculate cumulative price path starting from £40
+    # cumprod() calculates the cumulative product of the changes
+    sample.path <- cumprod(c(40, changes))
+    
+    # Return the final price after 200 days
+    closing.price <- sample.path[days+1]  # +1 because we add the opening price
+    return(closing.price)
 }
+
+# Run the simulation 10,000 times to generate possible future prices
+number_of_possible_futures <- 10000
+mc.closing <- replicate(number_of_possible_futures, path_sim())
 ```
 
-
-## `replicate` function
-- For simplicity I have *hard-coded* one sample path of our IPO closing price in the previous function.
-- We can then use replicate function to call `path_sim` 10000 times
-
-```{r}
-number_of_possible_futures=10000
-mc.closing <- replicate(number_of_possible_futures,path_sim())
-```
 
 ## Summarising simulations
 
@@ -334,37 +360,53 @@ cat("median = ",median(mc.closing),
 - Logarithms are just magnitudes
 
 
-## Ontological perspective of why normal {.small}
+## Understanding Normal Distributions: Two Perspectives
+
+## The Ontological Perspective: "What Actually Exists" {.small}
+- Ontology asks: "What is the nature of reality?"
+- In financial markets, this means understanding how normal distributions naturally arise:
 
 ::: columns
 ::: column
-
 <iframe width="560" height="315" src="https://www.youtube.com/embed/XTsaZWzVJ4c" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-
 :::
 ::: column
-
-* Processes which add fluctuations results in dampening
-* Damped fluctuations end up Gaussian
-* No information left, except mean and variance.
-* Can't infer process from distribution!  Most do some more science.
+### Key Points:
+- Many small, independent changes add up to normal distributions
+- Like many traders making small price impacts
+- The final shape emerges from natural processes
+- Similar to how water finds its level naturally
 :::
 :::
 
-## Epistemological perspective of why normal {.small}
+## The Epistemological Perspective: "What Can We Know?" {.small}
+- Epistemology asks: "How do we know what we know?"
+- In finance, this means understanding our limitations in knowing market behavior:
 
 ::: columns
 ::: column
 <iframe width="560" height="315" src="https://www.youtube.com/embed/lI9-YgSzsEQ" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 :::
 ::: column
+### Key Points:
+- When we only know the mean and variance:
+  - Normal distribution is the most conservative assumption
+  - "Conservative" means making the fewest additional assumptions
+  - This is called the "maximum entropy" principle
+- Like betting on a horse race when you only know the average speed
+:::
+:::
 
-* Know only *mean* and *variance*
-* Then least suprising and most conservative (*maximum entropy*) distribution is Gaussian.
-  * In terms of being conservative, it assumes the least; only the mean and variance. 
-* Nature likes maximum entropy distributions.
-:::
-:::
+## Why These Perspectives Matter in Finance
+- Ontological (Reality):
+  - Helps understand how market prices actually form
+  - Explains why some patterns naturally emerge
+  - Shows limits of our ability to predict
+
+- Epistemological (Knowledge):
+  - Guides our modeling choices
+  - Helps avoid overconfident predictions
+  - Explains why we use normal distributions even when we know they're not perfect
 
 ## Why normal asset returns?
 * Financial time series processes considered in this course:
@@ -461,14 +503,38 @@ glen_m_ts <- glen_m$log_return %>%
 ## ggplot code
 
 ```{r}
+#| echo: true
+#| eval: true
+
+# Download Glencore stock data from Yahoo Finance
+glen <- tq_get("GLEN.L")
+
+# Calculate monthly log returns
+glen_m <- glen %>%
+    tq_transmute(
+        select = adjusted,           # Select adjusted closing prices
+        mutate_fun = monthlyReturn,  # Convert to monthly returns
+        type = "log",               # Calculate log returns
+        col_rename = "log_return"    # Name the new column
+    )
+
+# Create a time series object from the returns
+# Starting from May 2011 with monthly frequency
+glen_m_ts <- glen_m$log_return %>%
+    ts(frequency=12, start=c(2011,5))
+
+# Create density plot comparing returns to normal distribution
 glen_m %>% 
-  ggplot(aes(x=log_return)) +
-  geom_density() +
-  stat_function(
-    fun=dnorm,
-    args=list(mean(glen_m$log_return),
-              sd=sd(glen_m$log_return)),
-    col="red")
+    ggplot(aes(x=log_return)) +
+    geom_density() +                # Plot the actual return distribution
+    stat_function(                  # Add normal distribution line
+        fun=dnorm,
+        args=list(
+            mean(glen_m$log_return),    # Use actual mean
+            sd=sd(glen_m$log_return)    # Use actual standard deviation
+        ),
+        col="red"
+    )
 ```
 
 
@@ -1113,39 +1179,178 @@ ggplot() +
 ## Kalman Filter {.small}
 
 ```{r}
-```{r}
 #| echo: true
-# Apply the Kalman filter
-s <- dlmSmooth(aapl_prices, dlmModPoly(1, dV = 15100, dW = 1470))
+
+# Apply the Kalman filter to the price series
+# dlmModPoly(1) specifies a local linear trend model
+# dV is the observation variance (noise in price measurements)
+# dW is the system variance (noise in the underlying price evolution)
+s <- dlmSmooth(aapl_prices, 
+               dlmModPoly(1, 
+                         dV = 15100,  # Observation variance
+                         dW = 1470))  # System variance
 
 # Create a data frame for plotting
-data_df <- data.frame(Date = index(aapl_prices),
-                      Price = as.numeric(aapl_prices),
-                      Kalman = as.numeric(dropFirst(s$s)))
+# Combining original prices and Kalman filter estimates
+data_df <- data.frame(
+    Date = index(aapl_prices),                 # Time index
+    Price = as.numeric(aapl_prices),           # Original prices
+    Kalman = as.numeric(dropFirst(s$s))        # Smoothed estimates
+)
 
-# Plot the results using ggplot
+# Create visualization comparing original prices to Kalman filter estimates
 data_df |> 
-  ggplot(aes(x = Date)) +
-  geom_line(aes(y = Price, color = "Price")) +
-  geom_line(aes(y = Kalman, color = "Kalman")) +
-  labs(title = "Apple Inc. (AAPL) Stock Prices",
-       x = "Time",
-       y = "Adjusted Close") +
-  scale_color_manual(name = "Series", values = c("Price" = "black", "Kalman" = "blue")) +
-  theme_minimal()
+    ggplot(aes(x = Date)) +
+    # Plot original price series
+    geom_line(aes(y = Price, color = "Price")) +
+    # Plot Kalman filter estimates
+    geom_line(aes(y = Kalman, color = "Kalman")) +
+    # Add labels and formatting
+    labs(
+        title = "Apple Inc. (AAPL) Stock Prices",
+        subtitle = "Comparison of raw prices vs Kalman filter smoothing",
+        x = "Time",
+        y = "Adjusted Close"
+    ) +
+    scale_color_manual(
+        name = "Series", 
+        values = c("Price" = "black", "Kalman" = "blue")
+    ) +
+    theme_minimal()
 ```
 
-## Choosing the Right Smoothing Technique
+## Quantile-Quantile Plot Creation
 
-- Depends on the characteristics of the financial time series data
-- Consider the desired smoothing level and specific application or analysis goals
-- Explore multiple smoothing methods and compare their performance
-- Consider the trade-off between smoothing and preserving important features or patterns
-- Excessive smoothing can lead to loss of valuable information
-- Insufficient smoothing may fail to effectively remove unwanted noise
+```{r}
+#| echo: true
 
-## Combining Smoothing Techniques
+# Create Q-Q plot to compare returns distribution to normal distribution
+glen_m %>%
+    ggplot(aes(sample = 100 * log_return)) +  # Multiply by 100 to show as percentage
+    # Add Q-Q points
+    stat_qq(
+        distribution = stats::qnorm,  # Compare against normal distribution
+        color = "blue",
+        alpha = 0.6
+    ) +
+    # Add reference line
+    stat_qq_line(
+        distribution = stats::qnorm,
+        colour = "red"
+    ) +
+    # Add labels and formatting
+    labs(
+        title = "Q-Q Plot of Glencore Stock Returns",
+        subtitle = "Comparing returns distribution to normal distribution",
+        x = "Theoretical Quantiles",
+        y = "Sample Quantiles (%)"
+    ) +
+    theme_minimal()
+```
 
-- Financial analysts and researchers may combine different smoothing techniques
-- Advanced methods like wavelets or machine learning algorithms can be used
-- Helps extract meaningful insights from complex financial time series data
+## Seasonal Plot Creation
+
+```{r}
+#| echo: true
+
+# Create seasonal plot to visualize patterns within years
+glen_m_ts %>% 
+    ggseasonplot(
+        year.labels = TRUE,          # Show labels for each year
+        year.labels.left = TRUE,     # Place year labels on left side
+        col = rainbow(10)            # Use different color for each year
+    ) + 
+    # Add labels and formatting
+    labs(
+        title = "Seasonal Plot: Glencore Returns",
+        subtitle = "Monthly patterns across different years",
+        x = "Month",
+        y = "Returns"
+    ) +
+    theme_minimal() +
+    # Adjust theme for better readability
+    theme(
+        legend.position = "right",
+        axis.text.x = element_text(angle = 45, hjust = 1)
+    )
+```
+
+## Understanding Autocorrelation
+- Autocorrelation measures how related a time series is with itself at different time lags
+- Think of it like comparing today's price with:
+  - Yesterday's price (lag 1)
+  - Last week's price (lag 5)
+  - Last month's price (lag 20)
+- Values range from -1 to 1:
+  - Close to 1: Strong positive relationship
+  - Close to -1: Strong negative relationship
+  - Close to 0: No relationship
+
+## What is White Noise?
+- White noise is a sequence of random values with:
+  - Constant mean (usually 0)
+  - Constant variance
+  - No correlation between values at different times
+- Important because:
+  - It's the simplest type of random process
+  - Used to model "pure randomness" in financial markets
+  - Helps identify when a pattern is truly significant
+
+## Introduction to Kalman Filtering
+- Named after Rudolf Kálmán
+- Think of it like a GPS system:
+  - Combines noisy measurements with predictions
+  - Updates estimates as new data arrives
+  - Gets better over time
+- In finance, used for:
+  - Estimating true price trends
+  - Filtering out market noise
+  - State space modeling
+
+## Understanding Q-Q Plots
+- Q-Q (Quantile-Quantile) plots help assess if data follows a normal distribution
+- How to read them:
+  - Points following diagonal line → data is normally distributed
+  - Points above line → heavier tails than normal
+  - Points below line → lighter tails than normal
+- Why important in finance:
+  - Many models assume normal distribution
+  - Helps identify potential risk in extreme events
+  - Guides choice of statistical methods
+
+## Seasonal Patterns in Financial Data
+- Many financial time series show recurring patterns
+- Common types:
+  - Daily patterns (market open/close)
+  - Weekly patterns (weekend effect)
+  - Monthly patterns (end-of-month effect)
+  - Yearly patterns (tax-loss selling)
+- Understanding seasonality helps:
+  - Better timing of trades
+  - Risk management
+  - Performance attribution
+
+## Comparing Smoothing Techniques {.small}
+::: columns
+::: column
+### Simple Methods
+- Moving Averages
+  - Easy to understand
+  - Lag in signals
+  - Equal weights to all points
+
+### Advanced Methods
+- Kalman Filter
+  - Adaptive to changes
+  - Handles uncertainty
+  - More complex to implement
+:::
+::: column
+### When to Use What?
+- Simple MA: Quick trend analysis
+- EMA: More responsive trading signals
+- Kalman: Complex state estimation
+- Seasonal: Recurring patterns
+:::
+:::
+
