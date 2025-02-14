@@ -403,6 +403,110 @@ ggplot(sim_results, aes(x = final_price)) +
 :::
 :::
 
+## Monte Carlo Simulation Results {.smaller}
+
+```{r}
+#| echo: false
+#| include: false
+
+# Define the enhanced simulation function first
+path_sim_enhanced <- function(
+    initial_price = 40,
+    days = 200,
+    annual_return = 0.08,        # 8% expected annual return
+    annual_volatility = 0.20,    # 20% annual volatility
+    fat_tails = 1.5             # Parameter to create fatter tails
+) {
+    # Convert annual parameters to daily
+    daily_return <- annual_return/252  # Using trading days
+    daily_vol <- annual_volatility/sqrt(252)
+    
+    # Generate random returns with fat tails using mixture of normals
+    changes <- ifelse(runif(days) > 0.95,  # 5% of the time
+                     rnorm(days, daily_return, daily_vol * fat_tails),  # More volatile
+                     rnorm(days, daily_return, daily_vol))              # Normal volatility
+    
+    # Convert returns to price multipliers
+    price_multipliers <- exp(changes)
+    
+    # Calculate price path
+    sample_path <- initial_price * cumprod(c(1, price_multipliers))
+    
+    return(sample_path)  # Return full path instead of just final price
+}
+```
+
+::: columns
+::: {.column width="50%"}
+```{r}
+#| echo: false
+
+# Generate and plot multiple price paths
+set.seed(123)  # For reproducibility
+n_paths <- 100  # Number of paths to show
+
+# Function to generate full price path
+generate_path <- function() {
+    changes <- ifelse(runif(200) > 0.95,
+                     rnorm(200, mean=1.001, sd=0.005 * 1.5),
+                     rnorm(200, mean=1.001, sd=0.005))
+    cumprod(c(40, changes))
+}
+
+# Generate paths
+paths <- replicate(n_paths, generate_path())
+time_points <- 0:200
+
+# Create data frame for plotting
+paths_df <- data.frame(
+    time = rep(time_points, n_paths),
+    price = as.vector(paths),
+    path = factor(rep(1:n_paths, each = length(time_points)))
+)
+
+# Plot price paths
+ggplot(paths_df, aes(x = time, y = price, group = path)) +
+    geom_line(alpha = 0.1) +  # Set low alpha for transparency
+    labs(
+        title = "Basic Monte Carlo Price Paths",
+        subtitle = paste(n_paths, "simulated paths over 200 days"),
+        x = "Days",
+        y = "Stock Price (£)"
+    ) +
+    theme_minimal()
+```
+:::
+
+::: {.column width="50%"}
+```{r}
+#| echo: false
+
+# Create histogram of final prices
+sim_results <- data.frame(final_price = mc.closing)
+
+ggplot(sim_results, aes(x = final_price)) +
+    geom_histogram(aes(y = ..density..), 
+                  bins = 50, 
+                  fill = "skyblue", 
+                  alpha = 0.7) +
+    geom_density(color = "red", linewidth = 1) +
+    geom_vline(aes(xintercept = mean(sim_results$final_price)), 
+               color = "darkred", 
+               linetype = "dashed") +
+    labs(
+        title = "Distribution of Final Prices",
+        subtitle = paste("Mean =", round(mean(sim_results$final_price), 2), 
+                        "\n95% CI:", 
+                        round(quantile(sim_results$final_price, 0.025), 2), "to",
+                        round(quantile(sim_results$final_price, 0.975), 2)),
+        x = "Final Stock Price (£)",
+        y = "Density"
+    ) +
+    theme_minimal()
+```
+:::
+:::
+
 ## Enhanced Monte Carlo Results {.smaller}
 
 ::: columns
@@ -415,9 +519,7 @@ set.seed(123)  # For reproducibility
 n_paths <- 100  # Number of paths to show
 
 # Generate enhanced paths
-paths_enhanced <- replicate(n_paths, {
-    path_sim_enhanced(days = 200)
-})
+paths_enhanced <- replicate(n_paths, path_sim_enhanced())
 time_points <- 0:200
 
 # Create data frame for plotting
@@ -443,6 +545,9 @@ ggplot(paths_enhanced_df, aes(x = time, y = price, group = path)) +
 ::: {.column width="50%"}
 ```{r}
 #| echo: false
+
+# Run enhanced simulation for final prices
+enhanced_mc <- replicate(10000, tail(path_sim_enhanced(), 1))
 
 # Create histogram of enhanced final prices
 sim_results_enhanced <- data.frame(final_price = enhanced_mc)
